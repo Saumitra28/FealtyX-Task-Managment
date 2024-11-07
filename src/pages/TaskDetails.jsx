@@ -1,7 +1,7 @@
 import clsx from "clsx";
 import moment from "moment";
 import React, { useState } from "react";
-import { FaBug, FaTasks, FaThumbsUp, FaUser } from "react-icons/fa";
+import { FaBug, FaTasks, FaThumbsUp, FaUser ,FaClock} from "react-icons/fa";
 import { GrInProgress } from "react-icons/gr";
 import {
   MdKeyboardArrowDown,
@@ -43,6 +43,7 @@ const bgColor = {
 const TABS = [
   { title: "Task Detail", icon: <FaTasks /> },
   { title: "Activities/Timeline", icon: <RxActivityLog /> },
+  { title: "Time Tracker", icon: <FaClock /> }, 
 ];
 
 const TASKTYPEICON = {
@@ -92,43 +93,28 @@ const TaskDetails = () => {
   const [selected, setSelected] = useState(0);
   const task = tasks[3];
 
-  // State to handle time tracking
-  const [timeSpent, setTimeSpent] = useState(0); // in seconds
   const [isTracking, setIsTracking] = useState(false);
-  const [intervalId, setIntervalId] = useState(null);
-
-  // Start Time Tracker
-  const startTracking = () => {
-    if (!isTracking) {
-      setIsTracking(true);
-      const id = setInterval(() => {
-        setTimeSpent((prevTime) => prevTime + 1);
-      }, 1000); // Increase by 1 second
-      setIntervalId(id);
-    }
-  };
-
-  // Stop Time Tracker
-  const stopTracking = () => {
-    if (isTracking) {
-      setIsTracking(false);
-      clearInterval(intervalId);
-      setIntervalId(null);
-    }
-  };
-
-  // Format time in hours, minutes, and seconds
-  const formatTime = (seconds) => {
-    const hrs = Math.floor(seconds / 3600);
-    const mins = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    return `${hrs}h ${mins}m ${secs}s`;
-  };
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const [totalTime, setTotalTime] = useState(task?.totalTime || 0); // Load from task data
 
   useEffect(() => {
-    return () => clearInterval(intervalId); // Clean up timer on component unmount
-  }, [intervalId]);
+    let timer;
+    if (isTracking) {
+      timer = setInterval(() => {
+        setElapsedTime((prev) => prev + 1);
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [isTracking]);
 
+  const handleStartStop = () => {
+    if (isTracking) {
+      setTotalTime(totalTime + elapsedTime);
+      setElapsedTime(0);
+      toast.success("Time logged successfully!");
+    }
+    setIsTracking(!isTracking);
+  };
   return (
     <div className="w-full flex flex-col gap-3 mb-4 overflow-y-hidden">
       <h1 className="text-2xl text-white font-bold">{task?.title}</h1>
@@ -166,30 +152,6 @@ const TaskDetails = () => {
                   Created At: {new Date(task?.date).toDateString()}
                 </p>
 
-                {/* Time Tracker */}
-                <div className="space-y-4 py-6">
-                  <p className="text-lg font-semibold text-white">
-                    Time Tracker
-                  </p>
-                  <div className="flex items-center gap-4">
-                    <span className="text-white">
-                      Time Spent: {formatTime(timeSpent)}
-                    </span>
-                    {isTracking ? (
-                      <Button
-                        label="Stop"
-                        onClick={stopTracking}
-                        className="bg-red-600 text-white rounded"
-                      />
-                    ) : (
-                      <Button
-                        label="Start"
-                        onClick={startTracking}
-                        className="bg-green-600 text-white rounded"
-                      />
-                    )}
-                  </div>
-                </div>
 
                 <div className="flex items-center gap-8 p-4 border-y border-gray-200 text-white">
                   <div className="space-x-2">
@@ -278,12 +240,53 @@ const TaskDetails = () => {
               </div>
             </div>
           </>
+        ): selected === 1 ? (
+          <Activities activity={task?.activities} id={id} />
         ) : (
-          <>
-            <Activities activity={task?.activities} id={id} />
-          </>
+          <TimeTracker
+          task={task}
+          isTracking={isTracking}
+          onToggleTracking={handleStartStop}
+          elapsedTime={elapsedTime}
+          totalTime={totalTime}
+        />
         )}
       </Tabs>
+    </div>
+  );
+};
+
+const TimeTracker = ({
+  task,
+  isTracking,
+  onToggleTracking,
+  elapsedTime,
+  totalTime,
+}) => {
+  const formatTime = (time) => {
+    const hrs = Math.floor(time / 3600);
+    const mins = Math.floor((time % 3600) / 60);
+    const secs = time % 60;
+    return `${hrs}h ${mins}m ${secs}s`;
+  };
+
+  return (
+    <div className="w-full flex flex-col gap-4 text-white p-8 bg-[#030637] shadow-md">
+      <h4 className="text-lg font-semibold mb-5">Time Tracker</h4>
+      <div className="flex gap-8 items-center">
+        <span>Total Time Spent:</span>
+        <span className="text-xl font-bold">{formatTime(totalTime)}</span>
+      </div>
+      <div className="flex gap-8 items-center">
+        <span>Current Session:</span>
+        <span className="text-xl font-bold">{formatTime(elapsedTime)}</span>
+      </div>
+      <Button
+        type="button"
+        label={isTracking ? "Stop" : "Start"}
+        onClick={onToggleTracking}
+        className={`mt-4 ${isTracking ? "bg-red-500" : "bg-green-500"} text-white rounded`}
+      />
     </div>
   );
 };
